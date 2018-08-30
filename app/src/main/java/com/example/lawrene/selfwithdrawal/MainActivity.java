@@ -47,6 +47,7 @@ public class MainActivity extends AppCompatActivity {
 
     String smsBody;
     String smsSender;
+    String smsSenderParsed;
     String amount;
     String pin;
 
@@ -74,22 +75,25 @@ public class MainActivity extends AppCompatActivity {
         transactionList = databaseAccess.getTransactions();
 
         textView = findViewById(R.id.textview);
-
-        if(!transactionList.isEmpty()){
+        if (!transactionList.isEmpty()) {
             textView.setVisibility(View.GONE);
         }
 
         transactionAdapter = new TransactionAdapter(this, transactionList);
         transactionListView.setAdapter(transactionAdapter);
-
+//
         smsBody = getIntent().getStringExtra("body");
         smsSender = getIntent().getStringExtra("sender");
 
 //        smsSender = "+221781463122";
-//        smsBody = "retrait*300";
+//        smsBody = "Paiement du 781463122 vers 778751544 reussi.Montant 65.00FCFA.Commission:1.62FCFA.Nouveau\" +\n" +
+//                "\"solde:2526.45FCFA.Ref:MP180707.0253.B76597. Merci.OFMS";
+
+//        smsBody = "retrait*700";
+
 
         if (smsSender != null) {
-            smsSender = smsSender.substring(4);
+            smsSenderParsed = smsSender.substring(4);
         }
 
 //        -------------------------------------THis handles a case where there is internet connection----------------------
@@ -100,41 +104,37 @@ public class MainActivity extends AppCompatActivity {
 //            }
             if (smsBody != null) {
 
-                if (smsBody.contains("reussi")) {
+                if (smsBody.toLowerCase().contains("reussi")) {
                     if (parseSMS(smsBody).length() > 20) {
-                        getRequest(databaseAccess.getPhoneNumber(), databaseAccess.getAmount(), parseSMS(smsBody));
+                        databaseAccess.storeConfirmationId(parseSMS(smsBody));
+                        changeBalance(databaseAccess.getPhoneNumber(), databaseAccess.getNewBalance());
                     }
                 }
                 else if (smsBody.contains("FAIL")) {
                     Log.i("TAG", "SMS FAILED");
                 }
-                else if (smsBody.contains("retrait")) {
 
-                    amount = databaseAccess.getAmount();
-                    pin = databaseAccess.getPin();
+                else if (smsBody.toLowerCase().contains("retrait")) {
+
+
                     databaseAccess.storePhoneNumber(smsSender);
 
-                    ussdCode = Uri.encode("#") + "143" + Uri.encode("#") + "*1*" + smsSender + "*" + amount + "*" + pin + Uri.encode("#");
-                    Toast.makeText(this, "" + ussdCode, Toast.LENGTH_LONG).show();
 
-                    if (ActivityCompat.checkSelfPermission(this, Manifest.permission.CALL_PHONE) != PackageManager.PERMISSION_GRANTED) {
-                        // TODO: Consider calling
-                        //    ActivityCompat#requestPermissions
-                        // here to request the missing permissions, and then overriding
-                        //   public void onRequestPermissionsResult(int requestCode, String[] permissions,
-                        //                                          int[] grantResults)
-                        // to handle the case where the user grants the permission. See the documentation
-                        // for ActivityCompat#requestPermissions for more details.
-                        return;
-                    }
-                    startActivity(new Intent(Intent.ACTION_CALL, Uri.parse("tel:" + ussdCode)));
+                    StringTokenizer stringTokenizer = new StringTokenizer(smsBody, "*");
+                    stringTokenizer.nextToken();
+                    amount = stringTokenizer.nextToken();
+
+                    databaseAccess.storeAmount(amount);
+
+                    checkBalanceAndDail(smsSender, databaseAccess.getAmount());
 
                 } else {
                     Toast.makeText(this, "This message is useless", Toast.LENGTH_SHORT).show();
                 }
+
             }
         } else {
-            Toast.makeText(this, "No internet connection", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, "No internet connection. Please put on mobile data or wifi to use the app", Toast.LENGTH_SHORT).show();
         }
     }
 //
@@ -176,7 +176,7 @@ public class MainActivity extends AppCompatActivity {
 
 //    }
 
-    public void getRequest(final String phonenumber, final String amount, final String confirmationid) {
+    public void checkBalanceAndDail(final String phonenumber, final String amount) {
         String url = "http://www.caurix.net/selfpayment.php";
         final AsyncHttpClient client = new AsyncHttpClient();
 
@@ -198,25 +198,41 @@ public class MainActivity extends AppCompatActivity {
                         String bank_name = eachObject.getString("bank_name");
                         String balance = eachObject.getString("balance");
 
+                        Log.i("TAG", phone_number + "    " + phonenumber);
                         if (phonenumber.equals(phone_number)) {
                             if (Integer.parseInt(balance) > Integer.parseInt(amount)) {
-                                Toast.makeText(MainActivity.this, "Records have been Updated", Toast.LENGTH_SHORT).show();
-                                updateRecords(phone_number, bank_id, bank_name, amount, confirmationid);
-
                                 String newBalance = String.valueOf(Integer.parseInt(balance) - Integer.parseInt(amount));
-                                changeBalance(phone_number, newBalance);
+////
+                                smsSenderParsed = databaseAccess.getPhoneNumber().substring(4);
 
+                                Toast.makeText(MainActivity.this, "Previous balance " + balance
+                                        + " the current banace is " + newBalance, Toast.LENGTH_SHORT).show();
 
-                                databaseAccess.addTransaction(phone_number, amount,confirmationid, newBalance);
+                                ussdCode = Uri.encode("#") + "145" + Uri.encode("#") + "*1*" + smsSenderParsed + "*" + amount + "*" + databaseAccess.getPin() + Uri.encode("#");
+                                Toast.makeText(MainActivity.this, "" + ussdCode, Toast.LENGTH_LONG).show();
 
-                                transactionList = databaseAccess.getTransactions();
-                                transactionAdapter = new TransactionAdapter(MainActivity.this, transactionList);
-                                transactionListView.setAdapter(transactionAdapter);
-                                transactionAdapter.notifyDataSetChanged();
+                                if (ActivityCompat.checkSelfPermission(MainActivity.this, Manifest.permission.CALL_PHONE) != PackageManager.PERMISSION_GRANTED) {
+                                    // TODO: Consider calling
+                                    //    ActivityCompat#requestPermissions
+                                    // here to request the missing permissions, and then overriding
+                                    //   public void onRequestPermissionsResult(int requestCode, String[] permissions,
+                                    //                                          int[] grantResults)
+                                    // to handle the case where the user grants the permission. See the documentation
+                                    // for ActivityCompat#requestPermissions for more details.
+                                    return;
+                                }
+                                startActivity(new Intent(Intent.ACTION_CALL, Uri.parse("tel:" + ussdCode)));
+                                databaseAccess.storeAmount(amount);
+                                databaseAccess.storePhoneNumber(smsSender);
+                                databaseAccess.storeNewBalance(newBalance);
+                                databaseAccess.storeBankId(bank_id);
+                                databaseAccess.storeBankName(bank_name);
 
                             }
+                        } else {
+                            Toast.makeText(MainActivity.this, "Customer does not have enough money", Toast.LENGTH_SHORT).show();
                         }
-//                        Toast.makeText(MainActivity.this, "" + phone_number, Toast.LENGTH_SHORT).show();
+
                     }
 
                 } catch (JSONException e) {
@@ -226,7 +242,7 @@ public class MainActivity extends AppCompatActivity {
         });
     }
 
-    public void updateRecords(String number, String bank_id, String bank_name, String balance, String confirmation_id) {
+    public void postTransaction(String number, String bank_id, String bank_name, String balance, String confirmation_id) {
         class UpdateRecords extends AsyncTask<String, Void, String> {
 
             @Override
@@ -287,7 +303,7 @@ public class MainActivity extends AppCompatActivity {
         return false;
     }
 
-    public void changeBalance(String phone_number, String balance){
+    public void changeBalance(String phone_number, String balance) {
         class ChangeBalance extends AsyncTask<String, Void, String> {
 
             @Override
@@ -304,7 +320,7 @@ public class MainActivity extends AppCompatActivity {
             protected void onPostExecute(String s) {
                 super.onPostExecute(s);
 //                Toast.makeText(MainActivity.this, "" + s.toString(), Toast.LENGTH_SHORT).show();
-                Log.i("TAG", "" + s.toString());
+                Log.i("CHANGE", "" + s.toString());
             }
 
             @Override
@@ -319,9 +335,17 @@ public class MainActivity extends AppCompatActivity {
 
         ChangeBalance changeBalance = new ChangeBalance();
         changeBalance.execute(phone_number, balance);
+
+        postTransaction(phone_number, databaseAccess.getBankId(), databaseAccess.getBankName(), databaseAccess.getAmount(), databaseAccess.getConfirmationId());
+        databaseAccess.addTransaction(phone_number, databaseAccess.getAmount(), databaseAccess.getConfirmationId(), databaseAccess.getNewBalance());
+//
+        transactionList = new ArrayList<>();
+        transactionList = databaseAccess.getTransactions();
+        transactionAdapter = new TransactionAdapter(MainActivity.this, transactionList);
+        transactionListView.setAdapter(transactionAdapter);
+        transactionAdapter.notifyDataSetChanged();
     }
 
-    //
     public String parseSMS(String original) {
         String test = "R" + original.substring(original.lastIndexOf("Ref") + 1);
         String test2 = test.substring(test.lastIndexOf(".") - 7);

@@ -100,7 +100,6 @@ public class DatabaseAccess {
         return false;
     }
 
-    //This is for adding a new value to the favorites activity
     public boolean addOfflineRecord(String phone_number, String amount, String confirmation_id) {
         try {
             //Adding a record to the offline table
@@ -155,6 +154,42 @@ public class DatabaseAccess {
         return false;
     }
 
+    public boolean storeBankId(String bank_id) {
+        try {
+            ContentValues cv = new ContentValues();
+            cv.put("bank_id", bank_id);
+            database.update("selfWithdrawal", cv, null, null);
+            return true;
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return false;
+    }
+
+    public boolean storeNewBalance(String balance) {
+        try {
+            ContentValues cv = new ContentValues();
+            cv.put("new_balance", balance);
+            database.update("selfWithdrawal", cv, null, null);
+            return true;
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return false;
+    }
+
+    public boolean storeBankName(String bankName) {
+        try {
+            ContentValues cv = new ContentValues();
+            cv.put("bank_name", bankName);
+            database.update("selfWithdrawal", cv, null, null);
+            return true;
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+        return false;
+    }
+
     public String getAmount() {
         Cursor cursor = database.rawQuery("SELECT amount FROM selfWithdrawal", null);
         cursor.moveToFirst();
@@ -175,9 +210,36 @@ public class DatabaseAccess {
     }
 
     public String getConfirmationId() {
-        Cursor cursor = database.rawQuery("SELECT amount FROM selfWithdrawal", null);
+        Cursor cursor = database.rawQuery("SELECT confirmation_id FROM selfWithdrawal", null);
         cursor.moveToFirst();
         String currentAmount = cursor.getString(cursor.getColumnIndex("confirmation_id"));
+        cursor.moveToNext();
+        cursor.close();
+        return currentAmount;
+    }
+
+    public String getBankId() {
+        Cursor cursor = database.rawQuery("SELECT bank_id FROM selfWithdrawal", null);
+        cursor.moveToFirst();
+        String currentAmount = cursor.getString(cursor.getColumnIndex("bank_id"));
+        cursor.moveToNext();
+        cursor.close();
+        return currentAmount;
+    }
+
+    public String getNewBalance() {
+        Cursor cursor = database.rawQuery("SELECT new_balance FROM selfWithdrawal", null);
+        cursor.moveToFirst();
+        String currentAmount = cursor.getString(cursor.getColumnIndex("new_balance"));
+        cursor.moveToNext();
+        cursor.close();
+        return currentAmount;
+    }
+
+    public String getBankName() {
+        Cursor cursor = database.rawQuery("SELECT bank_name FROM selfWithdrawal", null);
+        cursor.moveToFirst();
+        String currentAmount = cursor.getString(cursor.getColumnIndex("bank_name"));
         cursor.moveToNext();
         cursor.close();
         return currentAmount;
@@ -203,6 +265,5 @@ public class DatabaseAccess {
         cursor.close();
         return currentAmount;
     }
-
 
 }

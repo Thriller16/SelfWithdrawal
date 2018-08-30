@@ -9,7 +9,7 @@ import android.widget.Toast;
 
 public class ConfigureActivity extends AppCompatActivity {
 
-    EditText amountEdt, pinEdt;
+    EditText pinEdt;
     Button saveBtn;
     String amount, newPin;
     DatabaseAccess databaseAccess;
@@ -22,36 +22,27 @@ public class ConfigureActivity extends AppCompatActivity {
         databaseAccess = DatabaseAccess.getInstance(this);
         databaseAccess.open();
 
-
-
-        amountEdt = findViewById(R.id.amountEdt);
         pinEdt = findViewById(R.id.pinEdt);
         saveBtn = findViewById(R.id.saveBtn);
 
-        amountEdt.setText(databaseAccess.getAmount());
         pinEdt.setText(databaseAccess.getPin());
 
         saveBtn.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
-                saveNew(amountEdt.getText().toString(), pinEdt.getText().toString());
+                saveNew(pinEdt.getText().toString());
             }
         });
     }
 
-    public void saveNew(String amount, String pin){
+    public void saveNew(String pin){
         if(pinEdt.getText().toString().length() < 4){
             Toast.makeText(this, "Pin cannot be less than 4 digits", Toast.LENGTH_SHORT).show();
         }
 
-        else if(amountEdt.getText().toString().equals("")){
-            Toast.makeText(this, "Amount field cannot be left blank", Toast.LENGTH_SHORT).show();
-        }
-
         else{
-            databaseAccess.storeAmount(amount);
             databaseAccess.storePin(pin);
-            Toast.makeText(this, "Configuration saved", Toast.LENGTH_SHORT).show();
+            Toast.makeText(this, "Pin saved", Toast.LENGTH_SHORT).show();
         }
 
     }
